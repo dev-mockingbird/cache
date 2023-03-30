@@ -7,6 +7,13 @@ import (
 	"time"
 )
 
+var globalCache map[string]*memoryCache
+var globallock sync.RWMutex
+
+func init() {
+	globalCache = make(map[string]*memoryCache)
+}
+
 type memoryCacheItem struct {
 	start time.Time
 	ttl   time.Duration
@@ -16,12 +23,26 @@ type memoryCacheItem struct {
 type memoryCache struct {
 	data     map[string]*memoryCacheItem
 	datalock sync.RWMutex
+	group    string
 	sctrl    chan struct{}
 }
 
-func MemoryCache() Cache {
-	m := &memoryCache{sctrl: make(chan struct{}), data: make(map[string]*memoryCacheItem)}
+func MemoryCache(group string) Cache {
+	globallock.RLock()
+	if m, ok := globalCache[group]; ok {
+		globallock.RUnlock()
+		return m
+	}
+	globallock.RUnlock()
+	m := &memoryCache{
+		sctrl: make(chan struct{}),
+		data:  make(map[string]*memoryCacheItem),
+		group: group,
+	}
 	m.cleanup()
+	globallock.Lock()
+	globalCache[group] = m
+	globallock.Unlock()
 	return m
 }
 
@@ -102,6 +123,9 @@ func (c *memoryCache) Del(ctx context.Context, keys ...string) error {
 func (c *memoryCache) Close() error {
 	c.sctrl <- struct{}{}
 	close(c.sctrl)
+	globallock.Lock()
+	delete(globalCache, c.group)
+	globallock.Unlock()
 	return nil
 }
 

@@ -9,7 +9,7 @@ import (
 )
 
 func TestMemoryCache(t *testing.T) {
-	m := MemoryCache()
+	m := MemoryCache("test")
 	ctx := context.Background()
 	var total int
 	for i := 0; i < 100000; i++ {
