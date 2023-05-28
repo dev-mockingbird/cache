@@ -27,7 +27,7 @@ type memoryCache struct {
 	sctrl    chan struct{}
 }
 
-func MemoryCache(group string) Cache {
+func Memory(group string) Cache {
 	globallock.RLock()
 	if m, ok := globalCache[group]; ok {
 		globallock.RUnlock()
@@ -44,6 +44,10 @@ func MemoryCache(group string) Cache {
 	globalCache[group] = m
 	globallock.Unlock()
 	return m
+}
+
+func MemoryCache(group string) Cache {
+	return Memory(group)
 }
 
 func (c *memoryCache) Put(ctx context.Context, key string, val interface{}, ttl ...time.Duration) error {
@@ -107,16 +111,11 @@ func (c *memoryCache) TTL(ctx context.Context, key string, ttl *time.Duration) e
 }
 
 func (c *memoryCache) Del(ctx context.Context, keys ...string) error {
-	ch := make(chan struct{})
-	go func() {
-		c.datalock.Lock()
-		defer c.datalock.Unlock()
-		for _, k := range keys {
-			delete(c.data, k)
-		}
-		ch <- struct{}{}
-	}()
-	<-ch
+	c.datalock.Lock()
+	defer c.datalock.Unlock()
+	for _, k := range keys {
+		delete(c.data, k)
+	}
 	return nil
 }
 
