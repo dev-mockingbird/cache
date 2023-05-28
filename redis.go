@@ -40,6 +40,9 @@ func (r *redisCache) Put(ctx context.Context, key string, val interface{}, ttls 
 func (r *redisCache) Get(ctx context.Context, key string, val interface{}) error {
 	str, err := r.cli.Get(ctx, key).Result()
 	if err != nil {
+		if err.Error() == "redis: nil" {
+			return ErrCacheNotFound
+		}
 		return err
 	}
 	return r.marshaler.Unmarshal([]byte(str), val)
